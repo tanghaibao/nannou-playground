@@ -1,0 +1,14 @@
+WHITESPACE = _{ " " }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+forward = { "F" | "L" | "R" }
+forward_no_line = { "f" }
+node = { !forward ~ ASCII_ALPHA }
+turn_left = { "+" }
+turn_right = { "-" }
+push = { "[" }
+pop = { "]" }
+state = { ( forward | forward_no_line | node | turn_left | turn_right | push | pop )+ }
+predecessor = { forward | forward_no_line | node }
+production = { predecessor ~ "=>" ~ state ~ "\n"* }
+productions = { SOI ~ production* ~ EOI}
