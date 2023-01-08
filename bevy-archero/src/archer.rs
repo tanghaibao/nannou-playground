@@ -16,6 +16,15 @@ struct Enemy;
 #[derive(Component, Reflect, Default)]
 struct Health(i32);
 
+#[derive(Component, Reflect, Default, PartialEq, Eq, Hash)]
+enum Pose {
+    #[default]
+    Idle,
+    Walk,
+    Attack,
+    Die,
+}
+
 #[derive(Component, Reflect, Default)]
 struct Velocity(Vec3);
 
@@ -24,24 +33,43 @@ pub struct ArcherPlugin;
 impl Plugin for ArcherPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Archer>()
+            .register_type::<Player>()
+            .register_type::<Enemy>()
+            .register_type::<Health>()
+            .register_type::<Velocity>()
+            .register_type::<AnimationTimer>()
             .add_startup_system(add_archer)
             .add_system(player_control)
-            .add_system(animate_archer);
+            .add_system(animate_player)
+            .add_system(enemy_move);
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct AnimationTimer(Timer);
 
-fn animate_archer(
+fn animate_player(
     time: Res<Time>,
-    mut query: Query<(&mut TextureAtlasSprite, &mut AnimationTimer)>,
+    mut query: Query<(&mut TextureAtlasSprite, &Pose, &mut AnimationTimer)>,
 ) {
-    for (mut sprite, mut timer) in query.iter_mut() {
+    for (mut sprite, pose, mut timer) in query.iter_mut() {
         timer.0.tick(time.delta());
         if timer.0.just_finished() {
             // info!("sprite index: {}", sprite.index);
-            sprite.index = (sprite.index - 6 + 1) % 6 + 6;
+            match pose {
+                Pose::Idle => {
+                    sprite.index = 1;
+                }
+                Pose::Walk => {
+                    sprite.index = (sprite.index - 6 + 1) % 6 + 6;
+                }
+                Pose::Attack => {
+                    sprite.index = (sprite.index - 12 + 1) % 6 + 12;
+                }
+                Pose::Die => {
+                    sprite.index = (sprite.index - 18 + 1) % 6 + 18;
+                }
+            }
         }
     }
 }
@@ -71,6 +99,7 @@ fn add_archer(
         Archer,
         Player,
         Health(100),
+        Pose::Idle,
         Velocity(Vec3::ZERO),
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Name::new("Player"),
@@ -84,7 +113,7 @@ fn add_archer(
             0.0,
         )
     };
-    commands.spawn_batch((0..10).map(move |_| {
+    commands.spawn_batch((0..10).map(move |i| {
         (
             MaterialMesh2dBundle {
                 mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
@@ -97,9 +126,11 @@ fn add_archer(
                 ..default()
             },
             Archer,
-            Player,
+            Enemy,
             Health(100),
-            Velocity(Vec3::ZERO),
+            Pose::Idle,
+            Velocity(Vec3::splat(6.0)),
+            Name::new(format!("Enemy {}", i)),
         )
     }));
 }
@@ -107,20 +138,42 @@ fn add_archer(
 // Add player control
 fn player_control(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform)>,
+    mut query: Query<(&Player, &mut Pose, &mut Transform)>,
 ) {
-    for (_, mut transform) in query.iter_mut() {
+    for (_, mut pose, mut transform) in query.iter_mut() {
         let mut direction = Vec3::ZERO;
         if keyboard_input.pressed(KeyCode::Left) {
             direction.x -= 1.0;
+            *pose = Pose::Walk;
+        } else if keyboard_input.pressed(KeyCode::Right) {
+            direction.x += 1.0;
+            *pose = Pose::Walk;
+        } else if keyboard_input.pressed(KeyCode::Up) {
+            direction.y += 1.0;
+            *pose = Pose::Walk;
+        } else if keyboard_input.pressed(KeyCode::Down) {
+            direction.y -= 1.0;
+            *pose = Pose::Walk;
+        } else {
+            *pose = Pose::Idle;
         }
-        if keyboard_input.pressed(KeyCode::Right) {
+        transform.translation += direction * 1.0;
+    }
+}
+
+fn enemy_move(time: Res<Time>, mut query: Query<(&Enemy, &mut Transform, &mut Velocity)>) {
+    for (_, mut transform, mut velocity) in query.iter_mut() {
+        let mut direction = Vec3::ZERO;
+        if rand::random::<f32>() < 0.1 {
             direction.x += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::Up) {
+        if rand::random::<f32>() < 0.1 {
+            direction.x -= 1.0;
+        }
+        if rand::random::<f32>() < 0.1 {
             direction.y += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::Down) {
+        if rand::random::<f32>() < 0.1 {
             direction.y -= 1.0;
         }
         transform.translation += direction * 1.0;
