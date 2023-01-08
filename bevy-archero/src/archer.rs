@@ -1,8 +1,8 @@
-use bevy::prelude::*;
-// use bevy::sprite::MaterialMesh2dBundle;
 use bevy::log::info;
+use bevy::prelude::*;
+use bevy::sprite::MaterialMesh2dBundle;
 
-// const ARCHER_SIZE: f32 = 30.0;
+const ARCHER_SIZE: f32 = 30.0;
 
 #[derive(Component, Reflect, Default)]
 struct Archer;
@@ -40,7 +40,7 @@ fn animate_archer(
     for (mut sprite, mut timer) in query.iter_mut() {
         timer.0.tick(time.delta());
         if timer.0.just_finished() {
-            info!("sprite index: {}", sprite.index);
+            // info!("sprite index: {}", sprite.index);
             sprite.index = (sprite.index - 6 + 1) % 6 + 6;
         }
     }
@@ -48,10 +48,10 @@ fn animate_archer(
 
 fn add_archer(
     mut commands: Commands,
-    // mut meshes: ResMut<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
-    // mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let texture_handle = asset_server.load("textures/vimal-durai-archer-sprite-sheet.png");
     let texture_atlas = TextureAtlas::from_grid(
@@ -75,21 +75,33 @@ fn add_archer(
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Name::new("Player"),
     ));
-    // let mesh = meshes.add(shape::Circle::default().into()).into();
-    // let material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
-    // let transform = Transform::from_translation(Vec3::ZERO).with_scale(Vec3::splat(ARCHER_SIZE));
-    // commands.spawn((
-    //     MaterialMesh2dBundle {
-    //         mesh,
-    //         material,
-    //         transform,
-    //         ..default()
-    //     },
-    //     Archer,
-    //     Player,
-    //     HitPoints(100),
-    //     Velocity(Vec3::ZERO),
-    // ));
+    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    let material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    let random_translation = || {
+        Vec3::new(
+            rand::random::<f32>() * 1000.0 - 500.0,
+            rand::random::<f32>() * 1000.0 - 500.0,
+            0.0,
+        )
+    };
+    commands.spawn_batch((0..10).map(move |_| {
+        (
+            MaterialMesh2dBundle {
+                mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
+                material: material.clone(),
+                transform: Transform {
+                    translation: random_translation(),
+                    scale: Vec3::splat(ARCHER_SIZE),
+                    ..Default::default()
+                },
+                ..default()
+            },
+            Archer,
+            Player,
+            Health(100),
+            Velocity(Vec3::ZERO),
+        )
+    }));
 }
 
 // Add player control
