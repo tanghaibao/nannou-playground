@@ -7,6 +7,8 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 mod archer;
 use archer::ArcherPlugin;
 
+mod weapon;
+
 #[derive(Component, Reflect, Default)]
 pub struct ColorText;
 

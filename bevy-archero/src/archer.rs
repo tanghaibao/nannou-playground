@@ -14,14 +14,7 @@ struct Player;
 struct Enemy;
 
 #[derive(Component, Reflect, Default)]
-enum Weapon {
-    #[default]
-    Bow,
-    Sword,
-}
-
-#[derive(Component, Reflect, Default)]
-struct HitPoints(i32);
+struct Health(i32);
 
 #[derive(Component, Reflect, Default)]
 struct Velocity(Vec3);
@@ -48,7 +41,7 @@ fn animate_archer(
         timer.0.tick(time.delta());
         if timer.0.just_finished() {
             info!("sprite index: {}", sprite.index);
-            sprite.index = (sprite.index - 7 + 1) % 6 + 7;
+            sprite.index = (sprite.index - 6 + 1) % 6 + 6;
         }
     }
 }
@@ -77,7 +70,7 @@ fn add_archer(
         },
         Archer,
         Player,
-        HitPoints(100),
+        Health(100),
         Velocity(Vec3::ZERO),
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Name::new("Player"),
