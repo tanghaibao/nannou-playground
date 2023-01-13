@@ -42,7 +42,7 @@ impl Plugin for ArcherPlugin {
             .add_startup_system(add_archer)
             .add_system(player_move)
             .add_system(player_attack)
-            .add_system(animate_player)
+            .add_system(player_animate)
             .add_system(enemy_move);
     }
 }
@@ -50,14 +50,16 @@ impl Plugin for ArcherPlugin {
 #[derive(Component, Reflect)]
 struct AnimationTimer(Timer);
 
-fn animate_player(
+#[derive(Component, Reflect)]
+struct AttackTimer(Timer);
+
+fn player_animate(
     time: Res<Time>,
     mut query: Query<(&mut TextureAtlasSprite, &Pose, &mut AnimationTimer)>,
 ) {
     for (mut sprite, pose, mut timer) in query.iter_mut() {
         timer.0.tick(time.delta());
         if timer.0.just_finished() {
-            // info!("sprite index: {}", sprite.index);
             match pose {
                 Pose::Idle => {
                     sprite.index = 1;
@@ -104,6 +106,7 @@ fn add_archer(
         Weapon::Bow,
         Pose::Idle,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+        AttackTimer(Timer::from_seconds(1.0, TimerMode::Repeating)),
         Name::new("Player"),
     ));
     let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
@@ -165,13 +168,18 @@ fn player_move(
 // Add player attack
 fn player_attack(
     mut commands: Commands,
-    mut query: Query<(&Weapon, &mut Pose, &Transform), With<Player>>,
+    time: Res<Time>,
+    mut query: Query<(&Weapon, &mut Pose, &Transform, &mut AttackTimer), With<Player>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
     let material = materials.add(Color::rgb(1.0, 0.5, 0.5).into());
-    for (weapon, mut pose, transform) in query.iter_mut() {
+    for (weapon, mut pose, transform, mut attack_timer) in query.iter_mut() {
+        attack_timer.0.tick(time.delta());
+        if !attack_timer.0.just_finished() {
+            continue;
+        }
         match weapon {
             Weapon::Bow => {
                 *pose = Pose::Attack;

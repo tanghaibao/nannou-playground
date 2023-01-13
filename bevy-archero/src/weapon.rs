@@ -32,6 +32,9 @@ pub enum Projectile {
     Lightning,
 }
 
+#[derive(Component, Reflect, Default)]
+pub struct ProjectileTimer(Timer);
+
 fn animate_projectile(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &Velocity), With<Projectile>>,
