@@ -1,6 +1,7 @@
 use bevy::log::info;
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
+use bevy_prototype_lyon::prelude::*;
 
 use crate::weapon::{Projectile, Velocity, Weapon, WeaponPlugin};
 
@@ -39,6 +40,7 @@ impl Plugin for ArcherPlugin {
             .register_type::<Pose>()
             .register_type::<AnimationTimer>()
             .add_plugin(WeaponPlugin)
+            .add_plugin(ShapePlugin)
             .add_startup_system(add_archer)
             .add_system(player_move)
             .add_system(player_attack)
@@ -118,18 +120,25 @@ fn add_archer(
             0.0,
         )
     };
+    let shape = shapes::RegularPolygon {
+        sides: 6,
+        feature: shapes::RegularPolygonFeature::Radius(ARCHER_SIZE),
+        ..shapes::RegularPolygon::default()
+    };
     commands.spawn_batch((0..10).map(move |i| {
         (
-            MaterialMesh2dBundle {
-                mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
-                material: material.clone(),
-                transform: Transform {
-                    translation: random_translation(),
-                    scale: Vec3::splat(ARCHER_SIZE),
-                    ..Default::default()
+            GeometryBuilder::build_as(
+                &shape,
+                DrawMode::Outlined {
+                    fill_mode: FillMode::color(Color::CYAN),
+                    outline_mode: StrokeMode::new(Color::BLACK, 10.0),
                 },
-                ..default()
-            },
+                // Transform::default(),
+                Transform {
+                    translation: random_translation(),
+                    ..default()
+                },
+            ),
             Archer,
             Enemy,
             Health(100),
@@ -203,7 +212,7 @@ fn player_attack(
     }
 }
 
-fn enemy_move(time: Res<Time>, mut query: Query<(&Enemy, &mut Transform, &mut Velocity)>) {
+fn enemy_move(mut query: Query<(&Enemy, &mut Transform, &mut Velocity)>) {
     for (_, mut transform, _) in query.iter_mut() {
         let mut direction = Vec3::ZERO;
         if rand::random::<f32>() < 0.1 {
