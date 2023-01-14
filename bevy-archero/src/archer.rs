@@ -42,8 +42,8 @@ impl Plugin for ArcherPlugin {
             .add_plugin(WeaponPlugin)
             .add_plugin(ShapePlugin)
             .add_startup_system(add_archer)
-            .add_system(player_move)
             .add_system(player_attack)
+            .add_system(player_move)
             .add_system(player_animate)
             .add_system(enemy_move);
     }
@@ -82,8 +82,8 @@ fn player_animate(
 
 fn add_archer(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<ColorMaterial>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -111,8 +111,8 @@ fn add_archer(
         AttackTimer(Timer::from_seconds(1.0, TimerMode::Repeating)),
         Name::new("Player"),
     ));
-    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
-    let material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    // let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    // let material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     let random_translation = || {
         Vec3::new(
             rand::random::<f32>() * 1000.0 - 500.0,
@@ -133,7 +133,6 @@ fn add_archer(
                     fill_mode: FillMode::color(Color::CYAN),
                     outline_mode: StrokeMode::new(Color::BLACK, 10.0),
                 },
-                // Transform::default(),
                 Transform {
                     translation: random_translation(),
                     ..default()
@@ -212,8 +211,8 @@ fn player_attack(
     }
 }
 
-fn enemy_move(mut query: Query<(&Enemy, &mut Transform, &mut Velocity)>) {
-    for (_, mut transform, _) in query.iter_mut() {
+fn enemy_move(mut query: Query<(&Enemy, &mut Transform)>) {
+    for (_, mut transform) in query.iter_mut() {
         let mut direction = Vec3::ZERO;
         if rand::random::<f32>() < 0.1 {
             direction.x += 1.0;
@@ -227,6 +226,6 @@ fn enemy_move(mut query: Query<(&Enemy, &mut Transform, &mut Velocity)>) {
         if rand::random::<f32>() < 0.1 {
             direction.y -= 1.0;
         }
-        transform.translation += direction * 1.0;
+        transform.translation += direction * 2.0;
     }
 }
