@@ -8,9 +8,6 @@ use crate::weapon::{Projectile, Velocity, Weapon, WeaponPlugin};
 const ARCHER_SIZE: f32 = 30.0;
 
 #[derive(Component, Reflect, Default)]
-struct Archer;
-
-#[derive(Component, Reflect, Default)]
 struct Player;
 
 #[derive(Component, Reflect, Default)]
@@ -32,8 +29,7 @@ pub struct ArcherPlugin;
 
 impl Plugin for ArcherPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Archer>()
-            .register_type::<Player>()
+        app.register_type::<Player>()
             .register_type::<Enemy>()
             .register_type::<Health>()
             .register_type::<Velocity>()
@@ -41,11 +37,12 @@ impl Plugin for ArcherPlugin {
             .register_type::<AnimationTimer>()
             .add_plugin(WeaponPlugin)
             .add_plugin(ShapePlugin)
-            .add_startup_system(add_archer)
+            .add_startup_system(add_player_and_enemy)
             .add_system(player_attack)
             .add_system(player_move)
             .add_system(player_animate)
-            .add_system(enemy_move);
+            .add_system(enemy_move)
+            .add_system(enemy_attack);
     }
 }
 
@@ -80,7 +77,7 @@ fn player_animate(
     }
 }
 
-fn add_archer(
+fn add_player_and_enemy(
     mut commands: Commands,
     // mut meshes: ResMut<Assets<Mesh>>,
     // mut materials: ResMut<Assets<ColorMaterial>>,
@@ -102,7 +99,6 @@ fn add_archer(
             texture_atlas: texture_atlas_handle,
             ..default()
         },
-        Archer,
         Player,
         Health(100),
         Weapon::Bow,
@@ -138,10 +134,11 @@ fn add_archer(
                     ..default()
                 },
             ),
-            Archer,
             Enemy,
             Health(100),
+            Weapon::Bow,
             Pose::Idle,
+            AttackTimer(Timer::from_seconds(2.0, TimerMode::Repeating)),
             Name::new(format!("Enemy {}", i)),
         )
     }));
@@ -227,5 +224,56 @@ fn enemy_move(mut query: Query<(&Enemy, &mut Transform)>) {
             direction.y -= 1.0;
         }
         transform.translation += direction * 2.0;
+    }
+}
+
+// Add player attack
+fn enemy_attack(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(&Weapon, &Transform, &mut AttackTimer), With<Enemy>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    let random_color = || {
+        Color::rgb(
+            rand::random::<f32>(),
+            rand::random::<f32>(),
+            rand::random::<f32>(),
+        )
+    };
+    let material = materials.add(random_color().into());
+    for (weapon, transform, mut attack_timer) in query.iter_mut() {
+        attack_timer.0.tick(time.delta());
+        if !attack_timer.0.just_finished() {
+            continue;
+        }
+        let random_velocity = || {
+            Vec3::new(
+                rand::random::<f32>() * 100.0 - 50.0,
+                rand::random::<f32>() * 100.0 - 50.0,
+                0.0,
+            )
+        };
+        match weapon {
+            Weapon::Bow => {
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
+                        material: material.clone(),
+                        transform: Transform {
+                            translation: transform.translation,
+                            scale: Vec3::splat(ARCHER_SIZE / 2.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    Projectile::Arrow,
+                    Velocity(random_velocity()),
+                ));
+            }
+            _ => todo!(),
+        }
     }
 }
