@@ -1,11 +1,11 @@
 use bevy::log::info;
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
+use bevy_prototype_lyon::prelude::*;
+
+use crate::weapon::{Projectile, Velocity, Weapon, WeaponPlugin};
 
 const ARCHER_SIZE: f32 = 30.0;
-
-#[derive(Component, Reflect, Default)]
-struct Archer;
 
 #[derive(Component, Reflect, Default)]
 struct Player;
@@ -25,37 +25,40 @@ enum Pose {
     Die,
 }
 
-#[derive(Component, Reflect, Default)]
-struct Velocity(Vec3);
-
 pub struct ArcherPlugin;
 
 impl Plugin for ArcherPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Archer>()
-            .register_type::<Player>()
+        app.register_type::<Player>()
             .register_type::<Enemy>()
             .register_type::<Health>()
             .register_type::<Velocity>()
+            .register_type::<Pose>()
             .register_type::<AnimationTimer>()
-            .add_startup_system(add_archer)
-            .add_system(player_control)
-            .add_system(animate_player)
-            .add_system(enemy_move);
+            .add_plugin(WeaponPlugin)
+            .add_plugin(ShapePlugin)
+            .add_startup_system(add_player_and_enemy)
+            .add_system(player_attack)
+            .add_system(player_move)
+            .add_system(player_animate)
+            .add_system(enemy_move)
+            .add_system(enemy_attack);
     }
 }
 
 #[derive(Component, Reflect)]
 struct AnimationTimer(Timer);
 
-fn animate_player(
+#[derive(Component, Reflect)]
+struct AttackTimer(Timer);
+
+fn player_animate(
     time: Res<Time>,
     mut query: Query<(&mut TextureAtlasSprite, &Pose, &mut AnimationTimer)>,
 ) {
     for (mut sprite, pose, mut timer) in query.iter_mut() {
         timer.0.tick(time.delta());
         if timer.0.just_finished() {
-            // info!("sprite index: {}", sprite.index);
             match pose {
                 Pose::Idle => {
                     sprite.index = 1;
@@ -74,10 +77,10 @@ fn animate_player(
     }
 }
 
-fn add_archer(
+fn add_player_and_enemy(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<ColorMaterial>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -96,16 +99,16 @@ fn add_archer(
             texture_atlas: texture_atlas_handle,
             ..default()
         },
-        Archer,
         Player,
         Health(100),
+        Weapon::Bow,
         Pose::Idle,
-        Velocity(Vec3::ZERO),
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+        AttackTimer(Timer::from_seconds(1.0, TimerMode::Repeating)),
         Name::new("Player"),
     ));
-    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
-    let material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    // let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    // let material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     let random_translation = || {
         Vec3::new(
             rand::random::<f32>() * 1000.0 - 500.0,
@@ -113,30 +116,36 @@ fn add_archer(
             0.0,
         )
     };
+    let shape = shapes::RegularPolygon {
+        sides: 6,
+        feature: shapes::RegularPolygonFeature::Radius(ARCHER_SIZE),
+        ..shapes::RegularPolygon::default()
+    };
     commands.spawn_batch((0..10).map(move |i| {
         (
-            MaterialMesh2dBundle {
-                mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
-                material: material.clone(),
-                transform: Transform {
-                    translation: random_translation(),
-                    scale: Vec3::splat(ARCHER_SIZE),
-                    ..Default::default()
+            GeometryBuilder::build_as(
+                &shape,
+                DrawMode::Outlined {
+                    fill_mode: FillMode::color(Color::CYAN),
+                    outline_mode: StrokeMode::new(Color::BLACK, 10.0),
                 },
-                ..default()
-            },
-            Archer,
+                Transform {
+                    translation: random_translation(),
+                    ..default()
+                },
+            ),
             Enemy,
             Health(100),
+            Weapon::Bow,
             Pose::Idle,
-            Velocity(Vec3::splat(6.0)),
+            AttackTimer(Timer::from_seconds(2.0, TimerMode::Repeating)),
             Name::new(format!("Enemy {}", i)),
         )
     }));
 }
 
 // Add player control
-fn player_control(
+fn player_move(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Player, &mut Pose, &mut Transform)>,
 ) {
@@ -161,8 +170,46 @@ fn player_control(
     }
 }
 
-fn enemy_move(time: Res<Time>, mut query: Query<(&Enemy, &mut Transform, &mut Velocity)>) {
-    for (_, mut transform, mut velocity) in query.iter_mut() {
+// Add player attack
+fn player_attack(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(&Weapon, &mut Pose, &Transform, &mut AttackTimer), With<Player>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    let material = materials.add(Color::rgb(1.0, 0.5, 0.5).into());
+    for (weapon, mut pose, transform, mut attack_timer) in query.iter_mut() {
+        attack_timer.0.tick(time.delta());
+        if !attack_timer.0.just_finished() {
+            continue;
+        }
+        match weapon {
+            Weapon::Bow => {
+                *pose = Pose::Attack;
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
+                        material: material.clone(),
+                        transform: Transform {
+                            translation: transform.translation,
+                            scale: Vec3::splat(ARCHER_SIZE / 2.0),
+                            ..Default::default()
+                        },
+                        ..default()
+                    },
+                    Projectile::Arrow,
+                    Velocity(Vec3::new(100.0, 100.0, 0.0)),
+                ));
+            }
+            _ => todo!(),
+        }
+    }
+}
+
+fn enemy_move(mut query: Query<(&Enemy, &mut Transform)>) {
+    for (_, mut transform) in query.iter_mut() {
         let mut direction = Vec3::ZERO;
         if rand::random::<f32>() < 0.1 {
             direction.x += 1.0;
@@ -176,6 +223,57 @@ fn enemy_move(time: Res<Time>, mut query: Query<(&Enemy, &mut Transform, &mut Ve
         if rand::random::<f32>() < 0.1 {
             direction.y -= 1.0;
         }
-        transform.translation += direction * 1.0;
+        transform.translation += direction * 2.0;
+    }
+}
+
+// Add player attack
+fn enemy_attack(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(&Weapon, &Transform, &mut AttackTimer), With<Enemy>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    let random_color = || {
+        Color::rgb(
+            rand::random::<f32>(),
+            rand::random::<f32>(),
+            rand::random::<f32>(),
+        )
+    };
+    let material = materials.add(random_color().into());
+    for (weapon, transform, mut attack_timer) in query.iter_mut() {
+        attack_timer.0.tick(time.delta());
+        if !attack_timer.0.just_finished() {
+            continue;
+        }
+        let random_velocity = || {
+            Vec3::new(
+                rand::random::<f32>() * 100.0 - 50.0,
+                rand::random::<f32>() * 100.0 - 50.0,
+                0.0,
+            )
+        };
+        match weapon {
+            Weapon::Bow => {
+                commands.spawn((
+                    MaterialMesh2dBundle {
+                        mesh: bevy::sprite::Mesh2dHandle(mesh.clone()),
+                        material: material.clone(),
+                        transform: Transform {
+                            translation: transform.translation,
+                            scale: Vec3::splat(ARCHER_SIZE / 2.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    Projectile::Arrow,
+                    Velocity(random_velocity()),
+                ));
+            }
+            _ => todo!(),
+        }
     }
 }
