@@ -28,3 +28,10 @@ search](https://en.wikipedia.org/wiki/A*_search_algorithm) algorithm, BFS, DFS
 and [beam search](https://en.wikipedia.org/wiki/Beam_search).
 
 ![nannou-pathfinding](images/nannou-pathfinding.gif)
+
+### <kbd>browian</kbd>
+
+This visualizes a [Browian
+motion](https://en.wikipedia.org/wiki/Brownian_motion).
+
+![nannou-browian](images/nannou-brownian.gif)
