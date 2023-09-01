@@ -1,6 +1,6 @@
 use nannou::prelude::*;
 
-const GRID_SIZE: usize = 101;
+const GRID_SIZE: usize = 151;
 const SQUARE_SIZE: f32 = 5.0;
 const DA: f32 = 0.2; // diffusion rate for A
 const DB: f32 = 0.1; // diffusion rate for B
@@ -12,32 +12,44 @@ struct Model {
 
 impl Model {
     fn init() -> Self {
-        let mut s = Self {
+        Self {
             ma: vec![vec![1.0; GRID_SIZE]; GRID_SIZE],
             mb: vec![vec![0.0; GRID_SIZE]; GRID_SIZE],
-        };
-        // Place a center square of B's
-        let center = GRID_SIZE / 2;
-        let width = GRID_SIZE / 10;
-        // Central square of B's expand outward within a uniform of A particles
-        for i in center - width..center + width {
-            for j in center - width..center + width {
-                s.ma[i][j] = 0.0;
-                s.mb[i][j] = 1.0;
-            }
         }
-        s
     }
 
     /// Diffuse the given matrix by the given rate
     fn diffuse(m: &Vec<Vec<f32>>, rate: f32) -> Vec<Vec<f32>> {
         let mut next = m.clone();
-        for i in 1..GRID_SIZE - 1 {
-            for j in 1..GRID_SIZE - 1 {
-                next[i][j] = (1.0 - rate) * m[i][j]
-                    + rate / 5.0 * (m[i - 1][j] + m[i + 1][j] + m[i][j - 1] + m[i][j + 1])
-                    + rate / 20.0
-                        * (m[i - 1][j - 1] + m[i + 1][j - 1] + m[i - 1][j + 1] + m[i + 1][j + 1]);
+        for i in 0..GRID_SIZE {
+            for j in 0..GRID_SIZE {
+                let mut nei = 0.0;
+                let mut diag = 0.0;
+                if i > 0 {
+                    nei += m[i - 1][j];
+                    if j > 0 {
+                        diag += m[i - 1][j - 1];
+                    }
+                    if j < GRID_SIZE - 1 {
+                        diag += m[i - 1][j + 1];
+                    }
+                }
+                if i < GRID_SIZE - 1 {
+                    nei += m[i + 1][j];
+                    if j > 0 {
+                        diag += m[i + 1][j - 1];
+                    }
+                    if j < GRID_SIZE - 1 {
+                        diag += m[i + 1][j + 1];
+                    }
+                }
+                if j > 0 {
+                    nei += m[i][j - 1];
+                }
+                if j < GRID_SIZE - 1 {
+                    nei += m[i][j + 1];
+                }
+                next[i][j] = (1.0 - rate) * m[i][j] + rate / 5.0 * nei + rate / 20.0 * diag;
             }
         }
         next
@@ -46,7 +58,16 @@ impl Model {
     fn update(&mut self) {
         // Diffuse A and B
         let next_a = Self::diffuse(&self.ma, DA);
-        let next_b = Self::diffuse(&self.mb, DB);
+        let mut next_b = Self::diffuse(&self.mb, DB);
+        // Place a center square of B's
+        let center = GRID_SIZE / 2;
+        let width = GRID_SIZE / 10;
+        // Central square of B's expand outward within a uniform of A particles
+        for i in center - width..center + width {
+            for j in center - width..center + width {
+                next_b[i][j] += 1.0;
+            }
+        }
         // Swap the matrices
         self.ma = next_a;
         self.mb = next_b;
