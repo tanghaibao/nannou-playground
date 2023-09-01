@@ -5,13 +5,9 @@ const SQUARE_SIZE: f32 = 5.0;
 const DA: f32 = 0.5; // diffusion rate for A
 const DB: f32 = 0.25; // diffusion rate for B
 
-// const FEEDA: f32 = 0.034; // feed rate for A
-// const KILLB: f32 = 0.1; // kill rate for B
-// const REACTION: f32 = 1.0; // reaction rate
-
-const FEEDA: f32 = 0.0;
-const KILLB: f32 = 0.0;
-const REACTION: f32 = 0.0;
+const FEEDA: f32 = 0.04; // feed rate for A
+const KILLB: f32 = 0.1; // kill rate for B
+const REACTION: f32 = 1.0; // reaction rate
 
 struct Model {
     ma: Vec<Vec<f32>>,
@@ -20,10 +16,19 @@ struct Model {
 
 impl Model {
     fn init() -> Self {
-        Self {
-            ma: vec![vec![1.0; GRID_SIZE]; GRID_SIZE],
-            mb: vec![vec![0.0; GRID_SIZE]; GRID_SIZE],
+        let mut ma = vec![vec![1.0; GRID_SIZE]; GRID_SIZE];
+        let mut mb = vec![vec![0.0; GRID_SIZE]; GRID_SIZE];
+        // Place a center square of B's
+        let center = GRID_SIZE / 2;
+        let width = GRID_SIZE / 20;
+        // Central square of B's expand outward within a uniform of A particles
+        for i in center - width..center + width {
+            for j in center - width..center + width {
+                ma[i][j] = 0.0;
+                mb[i][j] = 1.0;
+            }
         }
+        Self { ma, mb }
     }
 
     /// Diffuse the given matrix by the given rate
@@ -83,16 +88,7 @@ impl Model {
         }
         // Diffuse A and B
         let next_a = Self::diffuse(&self.ma, DA, FEEDA, 0.0, -REACTION, &reaction);
-        let mut next_b = Self::diffuse(&self.mb, DB, 0.0, KILLB, REACTION, &reaction);
-        // Place a center square of B's
-        let center = GRID_SIZE / 2;
-        let width = GRID_SIZE / 20;
-        // Central square of B's expand outward within a uniform of A particles
-        for i in center - width..center + width {
-            for j in center - width..center + width {
-                next_b[i][j] += 1.0;
-            }
-        }
+        let next_b = Self::diffuse(&self.mb, DB, 0.0, KILLB, REACTION, &reaction);
         // Swap the matrices
         self.ma = next_a;
         self.mb = next_b;
