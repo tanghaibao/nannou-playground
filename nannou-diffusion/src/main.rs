@@ -1,9 +1,17 @@
 use nannou::prelude::*;
 
-const GRID_SIZE: usize = 151;
+const GRID_SIZE: usize = 161;
 const SQUARE_SIZE: f32 = 5.0;
-const DA: f32 = 0.2; // diffusion rate for A
-const DB: f32 = 0.1; // diffusion rate for B
+const DA: f32 = 0.5; // diffusion rate for A
+const DB: f32 = 0.25; // diffusion rate for B
+
+// const FEEDA: f32 = 0.034; // feed rate for A
+// const KILLB: f32 = 0.1; // kill rate for B
+// const REACTION: f32 = 1.0; // reaction rate
+
+const FEEDA: f32 = 0.0;
+const KILLB: f32 = 0.0;
+const REACTION: f32 = 0.0;
 
 struct Model {
     ma: Vec<Vec<f32>>,
@@ -19,7 +27,14 @@ impl Model {
     }
 
     /// Diffuse the given matrix by the given rate
-    fn diffuse(m: &Vec<Vec<f32>>, rate: f32) -> Vec<Vec<f32>> {
+    fn diffuse(
+        m: &Vec<Vec<f32>>,
+        diffusion_rate: f32,
+        feed_rate: f32,
+        kill_rate: f32,
+        reaction_rate: f32,
+        reaction: &Vec<Vec<f32>>,
+    ) -> Vec<Vec<f32>> {
         let mut next = m.clone();
         for i in 0..GRID_SIZE {
             for j in 0..GRID_SIZE {
@@ -49,19 +64,29 @@ impl Model {
                 if j < GRID_SIZE - 1 {
                     nei += m[i][j + 1];
                 }
-                next[i][j] = (1.0 - rate) * m[i][j] + rate / 5.0 * nei + rate / 20.0 * diag;
+                let diffusion = 0.2 * nei + 0.05 * diag - m[i][j];
+                next[i][j] = m[i][j] + diffusion_rate * diffusion + feed_rate * (1.0 - m[i][j])
+                    - kill_rate * m[i][j]
+                    + reaction_rate * reaction[i][j];
             }
         }
         next
     }
 
     fn update(&mut self) {
+        // Reaction matrix
+        let mut reaction = vec![vec![0.0; GRID_SIZE]; GRID_SIZE];
+        for i in 0..GRID_SIZE {
+            for j in 0..GRID_SIZE {
+                reaction[i][j] = self.ma[i][j] * self.mb[i][j] * self.mb[i][j];
+            }
+        }
         // Diffuse A and B
-        let next_a = Self::diffuse(&self.ma, DA);
-        let mut next_b = Self::diffuse(&self.mb, DB);
+        let next_a = Self::diffuse(&self.ma, DA, FEEDA, 0.0, -REACTION, &reaction);
+        let mut next_b = Self::diffuse(&self.mb, DB, 0.0, KILLB, REACTION, &reaction);
         // Place a center square of B's
         let center = GRID_SIZE / 2;
-        let width = GRID_SIZE / 10;
+        let width = GRID_SIZE / 20;
         // Central square of B's expand outward within a uniform of A particles
         for i in center - width..center + width {
             for j in center - width..center + width {
