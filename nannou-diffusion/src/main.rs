@@ -113,12 +113,17 @@ impl Model {
 
     fn draw(&self, app: &App) {
         let draw = app.draw();
-        draw.background().color(WHITE);
+        let mut max_b: f32 = 0.0;
+        for i in 0..GRID_SIZE {
+            for j in 0..GRID_SIZE {
+                max_b = max_b.max(self.mb[i][j] / (self.ma[i][j] + self.mb[i][j]));
+            }
+        }
         // Draw the heatmap with a gradient
         for i in 0..GRID_SIZE {
             for j in 0..GRID_SIZE {
                 let b = self.mb[i][j] / (self.ma[i][j] + self.mb[i][j]);
-                let rgba = self.gradient.get(b as f64);
+                let rgba = self.gradient.get((b / max_b) as f64);
                 draw.rect()
                     .x_y(
                         (i as f32 - GRID_SIZE as f32 / 2.0) * SQUARE_SIZE,
