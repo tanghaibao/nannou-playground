@@ -1,3 +1,4 @@
+use nannou::color::{Gradient, LinSrgba};
 use nannou::prelude::*;
 
 const GRID_SIZE: usize = 161;
@@ -5,30 +6,45 @@ const SQUARE_SIZE: f32 = 5.0;
 const DA: f32 = 0.5; // diffusion rate for A
 const DB: f32 = 0.25; // diffusion rate for B
 
-const FEEDA: f32 = 0.04; // feed rate for A
-const KILLB: f32 = 0.1; // kill rate for B
+const FEEDA: f32 = 0.041; // feed rate for A
+const KILLB: f32 = 0.099; // kill rate for B
 const REACTION: f32 = 1.0; // reaction rate
 
 struct Model {
     ma: Vec<Vec<f32>>,
     mb: Vec<Vec<f32>>,
+    gradient: Gradient<LinSrgba<f64>>,
 }
 
 impl Model {
-    fn init() -> Self {
-        let mut ma = vec![vec![1.0; GRID_SIZE]; GRID_SIZE];
-        let mut mb = vec![vec![0.0; GRID_SIZE]; GRID_SIZE];
-        // Place a center square of B's
-        let center = GRID_SIZE / 2;
-        let width = GRID_SIZE / 20;
-        // Central square of B's expand outward within a uniform of A particles
-        for i in center - width..center + width {
-            for j in center - width..center + width {
-                ma[i][j] = 0.0;
-                mb[i][j] = 1.0;
+    /// Place a square of B's at the given coordinates
+    fn add_square(&mut self, x: usize, y: usize, width: usize) {
+        for i in x - width..x + width {
+            for j in y - width..y + width {
+                self.ma[i][j] = 0.0;
+                self.mb[i][j] = 1.0;
             }
         }
-        Self { ma, mb }
+    }
+
+    fn init() -> Self {
+        let ma = vec![vec![1.0; GRID_SIZE]; GRID_SIZE];
+        let mb = vec![vec![0.0; GRID_SIZE]; GRID_SIZE];
+        let steelblue = LinSrgba::<f64>::new(0.2745, 0.5098, 0.7059, 1.0);
+        let white = LinSrgba::<f64>::new(1.0, 1.0, 1.0, 1.0);
+        let firebrick = LinSrgba::<f64>::new(0.698, 0.133, 0.133, 1.0);
+        let colors = vec![firebrick, white, steelblue];
+        let gradient = Gradient::new(colors);
+        // Place a center square of B's
+        let mut s = Self { ma, mb, gradient };
+        // s.add_square(GRID_SIZE / 2, GRID_SIZE / 2, GRID_SIZE / 20);
+        for _ in 0..10 {
+            // Add random clusters
+            let x = random_range(0, GRID_SIZE);
+            let y = random_range(0, GRID_SIZE);
+            s.add_square(x, y, GRID_SIZE / 60);
+        }
+        s
     }
 
     /// Diffuse the given matrix by the given rate
@@ -100,22 +116,8 @@ impl Model {
         // Draw the heatmap with a gradient
         for i in 0..GRID_SIZE {
             for j in 0..GRID_SIZE {
-                let a = self.ma[i][j] / (self.ma[i][j] + self.mb[i][j]);
-                let rgba = if a > 0.5 {
-                    srgba(
-                        FIREBRICK.red,
-                        FIREBRICK.green,
-                        FIREBRICK.blue,
-                        (2.0 * (a - 0.5) * 255.0) as u8,
-                    )
-                } else {
-                    srgba(
-                        STEELBLUE.red,
-                        STEELBLUE.green,
-                        STEELBLUE.blue,
-                        (2.0 * (0.5 - a) * 255.0) as u8,
-                    )
-                };
+                let b = self.mb[i][j] / (self.ma[i][j] + self.mb[i][j]);
+                let rgba = self.gradient.get(b as f64);
                 draw.rect()
                     .x_y(
                         (i as f32 - GRID_SIZE as f32 / 2.0) * SQUARE_SIZE,
