@@ -6,9 +6,10 @@ const SQUARE_SIZE: f32 = 5.0;
 const DA: f32 = 0.5; // diffusion rate for A
 const DB: f32 = 0.25; // diffusion rate for B
 
-const FEEDA: f32 = 0.041; // feed rate for A
-const KILLB: f32 = 0.099; // kill rate for B
+const FEEDA: f32 = 0.039; // feed rate for A
+const KILLB: f32 = 0.1; // kill rate for B
 const REACTION: f32 = 1.0; // reaction rate
+const DOTS: usize = 24; // number of initial random clusters
 
 struct Model {
     ma: Vec<Vec<f32>>,
@@ -38,10 +39,10 @@ impl Model {
         // Place a center square of B's
         let mut s = Self { ma, mb, gradient };
         // s.add_square(GRID_SIZE / 2, GRID_SIZE / 2, GRID_SIZE / 20);
-        for _ in 0..10 {
+        for _ in 0..DOTS {
             // Add random clusters
-            let x = random_range(0, GRID_SIZE);
-            let y = random_range(0, GRID_SIZE);
+            let x = random_range(0, GRID_SIZE - 1);
+            let y = random_range(0, GRID_SIZE - 1);
             s.add_square(x, y, GRID_SIZE / 60);
         }
         s
