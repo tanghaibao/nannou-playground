@@ -35,3 +35,9 @@ This visualizes a [Browian
 motion](https://en.wikipedia.org/wiki/Brownian_motion).
 
 ![nannou-browian](images/nannou-brownian.gif)
+
+### <kbd>diffusion</kbd>
+
+This visualizes a [Reaction-diffusion system](https://en.wikipedia.org/wiki/Reaction%E2%80%93diffusion_system).
+
+![nannou-diffusion](images/nannou-diffusion.gif)
