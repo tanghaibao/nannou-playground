@@ -8,7 +8,7 @@ struct Model {
     width: u32,
     height: u32,
     pixels: Tensor<B, 1>,
-    // weights: Vec<Vec<i32>>,
+    weights: Tensor<B, 2>,
 }
 
 fn main() {
@@ -21,24 +21,34 @@ impl Model {
         let device = &Default::default();
 
         // Read jpg image
-        let img = image::open("assets/girl.jpg").unwrap().to_rgb8();
+        let img = image::open("assets/girl-s.jpg").unwrap().to_rgb8();
         let (width, height) = img.dimensions();
         let mut pixels = vec![0.0f32; (width * height) as usize];
         for y in 0..height {
             for x in 0..width {
                 let pixel = img.get_pixel(x, y);
-                let r = pixel[0] as f32;
-                let g = pixel[1] as f32;
-                let b = pixel[2] as f32;
-                pixels[(y * width + x) as usize] = (r + g + b) / 3.0;
+                let r = pixel[0] as f32 / 255.0;
+                let g = pixel[1] as f32 / 255.0;
+                let b = pixel[2] as f32 / 255.0;
+                // Scale to [-1, 1]
+                pixels[(y * width + x) as usize] = (r + g + b) / 3.0 * 2.0 - 1.0;
             }
         }
         println!("Image loaded: {}x{}", width, height);
         let pixels = Tensor::from_data(pixels.as_slice(), device);
+        // Hebbian learning
+        let pixels_rs = pixels.clone().reshape([1, (width * height) as usize]);
+        println!("Pixels reshaped: {:?}", pixels_rs.shape());
+        println!("{:?}", pixels_rs);
+        let weights = pixels_rs.clone().transpose().matmul(pixels_rs)
+            - Tensor::eye((width * height) as usize, device);
+        println!("Weights calculated");
+        println!("{:?}", weights);
         Self {
             width,
             height,
             pixels,
+            weights,
         }
     }
 
@@ -56,12 +66,8 @@ impl Model {
         let cell_height = 1.0;
         let pixel_data: Vec<f32> = self.pixels.to_data().to_vec().unwrap();
         for &pixel in pixel_data.iter() {
-            let color = srgba(
-                pixel as f32 / 255.0,
-                pixel as f32 / 255.0,
-                pixel as f32 / 255.0,
-                1.0,
-            );
+            let pixel = pixel / 2.0 + 0.5;
+            let color = srgba(pixel, pixel, pixel, 1.0);
             let cell_xy = pt2(
                 x - width / 2.0 + cell_width / 2.0,
                 y - height / 2.0 + cell_height / 2.0,
