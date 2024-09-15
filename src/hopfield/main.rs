@@ -5,7 +5,7 @@ use nannou::prelude::*;
 struct Model {
     width: u32,
     height: u32,
-    pixels: Vec<f32>,
+    pixels: Vec<f64>,
     weights: Tensor,
 }
 
@@ -17,26 +17,26 @@ fn main() {
 impl Model {
     fn new() -> Self {
         let device = Device::Cpu;
-        let dtype = candle_core::DType::F32;
+        let dtype = candle_core::DType::F64;
 
         // Read jpg image
         let img = image::open("assets/girl-s.jpg").unwrap().to_rgb8();
         let (width, height) = img.dimensions();
         let n = (width * height) as usize;
-        let mut pixels = vec![0.0f32; (width * height) as usize];
+        let mut pixels = vec![0.0; (width * height) as usize];
         for y in 0..height {
             for x in 0..width {
                 let pixel = img.get_pixel(x, y);
-                let r = pixel[0] as f32 / 255.0;
-                let g = pixel[1] as f32 / 255.0;
-                let b = pixel[2] as f32 / 255.0;
-                // Scale to [-1, 1]
-                pixels[(y * width + x) as usize] = (r + g + b) / 3.0 * 2.0 - 1.0;
+                let r = pixel[0] as f64 / 255.0;
+                let g = pixel[1] as f64 / 255.0;
+                let b = pixel[2] as f64 / 255.0;
+                let val = (r + g + b) / 3.0 * 2.0 - 1.0;
+                pixels[(y * width + x) as usize] = if val > 0.0 { 1.0 } else { -1.0 };
             }
         }
         println!("Image loaded: {}x{}", width, height);
         // Hebbian learning
-        let pixels_rs = Tensor::from_vec(pixels, n, &device)
+        let pixels_rs = Tensor::from_vec(pixels.clone(), n, &device)
             .unwrap()
             .reshape((1, n))
             .unwrap();
@@ -47,10 +47,14 @@ impl Model {
         println!("Weights calculated");
         println!("{:?}", weights);
         // Make a random pattern
-        let pixels = Tensor::rand(-1 as f32, 1 as f32, n, &device)
-            .unwrap()
-            .to_vec1()
-            .unwrap();
+        let mut pixels = vec![0.0; n];
+        for i in 0..n {
+            pixels[i] = if rand::random::<f64>() > 0.5 {
+                1.0
+            } else {
+                -1.0
+            };
+        }
         Self {
             width,
             height,
@@ -62,18 +66,24 @@ impl Model {
     fn update(&mut self) {
         // Update the model
         // Pick a random index and update the pixel
-        let index = rand::random::<usize>() % (self.width * self.height) as usize;
-        let mut new_pixel = 0.0;
-        for i in 0..self.height as usize {
-            let a = self
-                .weights
-                .i((index, i))
-                .unwrap()
-                .to_scalar::<f32>()
-                .unwrap();
-            new_pixel += a * self.pixels[i];
+        loop {
+            let index = rand::random::<usize>() % (self.width * self.height) as usize;
+            let mut new_pixel = 0.0;
+            for i in 0..self.height as usize {
+                let a = self
+                    .weights
+                    .i((index, i))
+                    .unwrap()
+                    .to_scalar::<f64>()
+                    .unwrap();
+                new_pixel += a * self.pixels[i];
+            }
+            let np = if new_pixel > 0.0 { 1.0 } else { -1.0 };
+            if (np - self.pixels[index]).abs() < 1.0 {
+                break;
+            }
+            self.pixels[index] = np;
         }
-        self.pixels[index] = new_pixel;
     }
 
     fn draw(&self, draw: &nannou::draw::Draw) {
