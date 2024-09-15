@@ -2,6 +2,8 @@ use candle_core::{Device, IndexOp, Tensor};
 use nannou::image;
 use nannou::prelude::*;
 
+const CELL_WH: f32 = 6.0;
+
 struct Model {
     width: u32,
     height: u32,
@@ -88,12 +90,12 @@ impl Model {
 
     fn draw(&self, draw: &nannou::draw::Draw) {
         // Draw the model
-        let width = self.width as f32;
-        let height = self.height as f32;
+        let cell_width = CELL_WH;
+        let cell_height = CELL_WH;
+        let width: f32 = self.width as f32 * cell_width;
+        let height = self.height as f32 * cell_height;
         let mut x = 0.0;
         let mut y = height;
-        let cell_width = 1.0;
-        let cell_height = 1.0;
         for pixel in self.pixels.iter() {
             let pixel = pixel / 2.0 + 0.5;
             let color = srgba(pixel, pixel, pixel, 1.0);
