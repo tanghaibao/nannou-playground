@@ -1,14 +1,12 @@
-use burn::tensor::Tensor;
+use candle_core::{Device, IndexOp, Tensor};
 use nannou::image;
 use nannou::prelude::*;
-
-type B = burn::backend::NdArray;
 
 struct Model {
     width: u32,
     height: u32,
-    pixels: Tensor<B, 1>,
-    weights: Tensor<B, 2>,
+    pixels: Vec<f32>,
+    weights: Tensor,
 }
 
 fn main() {
@@ -18,11 +16,13 @@ fn main() {
 
 impl Model {
     fn new() -> Self {
-        let device = &Default::default();
+        let device = Device::Cpu;
+        let dtype = candle_core::DType::F32;
 
         // Read jpg image
         let img = image::open("assets/girl-s.jpg").unwrap().to_rgb8();
         let (width, height) = img.dimensions();
+        let n = (width * height) as usize;
         let mut pixels = vec![0.0f32; (width * height) as usize];
         for y in 0..height {
             for x in 0..width {
@@ -35,15 +35,22 @@ impl Model {
             }
         }
         println!("Image loaded: {}x{}", width, height);
-        let pixels = Tensor::from_data(pixels.as_slice(), device);
         // Hebbian learning
-        let pixels_rs = pixels.clone().reshape([1, (width * height) as usize]);
+        let pixels_rs = Tensor::from_vec(pixels, n, &device)
+            .unwrap()
+            .reshape((1, n))
+            .unwrap();
         println!("Pixels reshaped: {:?}", pixels_rs.shape());
         println!("{:?}", pixels_rs);
-        let weights = pixels_rs.clone().transpose().matmul(pixels_rs)
-            - Tensor::eye((width * height) as usize, device);
+        let eye = Tensor::eye(n, dtype, &device).unwrap();
+        let weights = (pixels_rs.t().unwrap().matmul(&pixels_rs).unwrap() - eye).unwrap();
         println!("Weights calculated");
         println!("{:?}", weights);
+        // Make a random pattern
+        let pixels = Tensor::rand(-1 as f32, 1 as f32, n, &device)
+            .unwrap()
+            .to_vec1()
+            .unwrap();
         Self {
             width,
             height,
@@ -54,6 +61,19 @@ impl Model {
 
     fn update(&mut self) {
         // Update the model
+        // Pick a random index and update the pixel
+        let index = rand::random::<usize>() % (self.width * self.height) as usize;
+        let mut new_pixel = 0.0;
+        for i in 0..self.height as usize {
+            let a = self
+                .weights
+                .i((index, i))
+                .unwrap()
+                .to_scalar::<f32>()
+                .unwrap();
+            new_pixel += a * self.pixels[i];
+        }
+        self.pixels[index] = new_pixel;
     }
 
     fn draw(&self, draw: &nannou::draw::Draw) {
@@ -64,8 +84,7 @@ impl Model {
         let mut y = height;
         let cell_width = 1.0;
         let cell_height = 1.0;
-        let pixel_data: Vec<f32> = self.pixels.to_data().to_vec().unwrap();
-        for &pixel in pixel_data.iter() {
+        for pixel in self.pixels.iter() {
             let pixel = pixel / 2.0 + 0.5;
             let color = srgba(pixel, pixel, pixel, 1.0);
             let cell_xy = pt2(
