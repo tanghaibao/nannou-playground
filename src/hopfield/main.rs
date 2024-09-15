@@ -1,6 +1,7 @@
 use candle_core::{Device, IndexOp, Tensor};
 use nannou::image;
 use nannou::prelude::*;
+use std::thread::sleep;
 
 /// Cell width and height
 const CELL_WH: f32 = 3.0;
@@ -15,6 +16,7 @@ struct Model {
 }
 
 fn main() {
+    sleep(std::time::Duration::from_secs(1));
     // Show the image
     nannou::app(model).update(update).run();
 }
