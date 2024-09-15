@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
 #[derive(Parser)]
-#[grammar = "grammar/koch.pest"]
+#[grammar = "fractal/grammar/koch.pest"]
 struct KochParser;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
