@@ -2,7 +2,10 @@ use candle_core::{Device, IndexOp, Tensor};
 use nannou::image;
 use nannou::prelude::*;
 
-const CELL_WH: f32 = 6.0;
+/// Cell width and height
+const CELL_WH: f32 = 3.0;
+/// Number of pixels to update
+const UPDATE_COUNT: u32 = 16;
 
 struct Model {
     width: u32,
@@ -68,7 +71,9 @@ impl Model {
     fn update(&mut self) {
         // Update the model
         // Pick a random index and update the pixel
-        loop {
+        let mut count = 0;
+        let mut loop_count = 0;
+        while count < UPDATE_COUNT && loop_count < 128 {
             let index = rand::random::<usize>() % (self.width * self.height) as usize;
             let mut new_pixel = 0.0;
             for i in 0..self.height as usize {
@@ -81,10 +86,11 @@ impl Model {
                 new_pixel += a * self.pixels[i];
             }
             let np = if new_pixel > 0.0 { 1.0 } else { -1.0 };
-            if (np - self.pixels[index]).abs() < 1.0 {
-                break;
+            if (np - self.pixels[index]).abs() > 1.0 {
+                count += 1;
             }
             self.pixels[index] = np;
+            loop_count += 1;
         }
     }
 
