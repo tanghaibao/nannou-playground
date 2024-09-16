@@ -1,4 +1,4 @@
-use bevy::log::info;
+use bevy::color::palettes::css::DARK_CYAN;
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 use bevy_prototype_lyon::prelude::*;
@@ -35,14 +35,18 @@ impl Plugin for ArcherPlugin {
             .register_type::<Velocity>()
             .register_type::<Pose>()
             .register_type::<AnimationTimer>()
-            .add_plugin(WeaponPlugin)
-            .add_plugin(ShapePlugin)
-            .add_startup_system(add_player_and_enemy)
-            .add_system(player_attack)
-            .add_system(player_move)
-            .add_system(player_animate)
-            .add_system(enemy_move)
-            .add_system(enemy_attack);
+            .add_plugins((WeaponPlugin, ShapePlugin))
+            .add_systems(Startup, add_player_and_enemy)
+            .add_systems(
+                Update,
+                (
+                    player_attack,
+                    player_move,
+                    player_animate,
+                    enemy_move,
+                    enemy_attack,
+                ),
+            );
     }
 }
 
@@ -54,7 +58,7 @@ struct AttackTimer(Timer);
 
 fn player_animate(
     time: Res<Time>,
-    mut query: Query<(&mut TextureAtlasSprite, &Pose, &mut AnimationTimer)>,
+    mut query: Query<(&mut TextureAtlas, &Pose, &mut AnimationTimer)>,
 ) {
     for (mut sprite, pose, mut timer) in query.iter_mut() {
         timer.0.tick(time.delta());
@@ -81,13 +85,12 @@ fn add_player_and_enemy(
     mut commands: Commands,
     // mut meshes: ResMut<Assets<Mesh>>,
     // mut materials: ResMut<Assets<ColorMaterial>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     asset_server: Res<AssetServer>,
 ) {
     let texture_handle = asset_server.load("textures/vimal-durai-archer-sprite-sheet.png");
-    let texture_atlas = TextureAtlas::from_grid(
-        texture_handle,
-        Vec2::new(960.0 / 6.0, 827.0 / 5.0),
+    let texture_atlas = TextureAtlasLayout::from_grid(
+        UVec2::new((960.0 / 6.0) as u32, (827.0 / 5.0) as u32),
         6,
         5,
         None,
@@ -95,8 +98,12 @@ fn add_player_and_enemy(
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
+        SpriteBundle {
+            texture: texture_handle,
+            ..default()
+        },
+        TextureAtlas {
+            layout: texture_atlas_handle,
             ..default()
         },
         Player,
@@ -123,17 +130,13 @@ fn add_player_and_enemy(
     };
     commands.spawn_batch((0..10).map(move |i| {
         (
-            GeometryBuilder::build_as(
-                &shape,
-                DrawMode::Outlined {
-                    fill_mode: FillMode::color(Color::CYAN),
-                    outline_mode: StrokeMode::new(Color::BLACK, 10.0),
-                },
-                Transform {
-                    translation: random_translation(),
-                    ..default()
-                },
-            ),
+            GeometryBuilder::build_as(&shape),
+            Fill::color(DARK_CYAN),
+            Stroke::new(Color::BLACK, 10.0),
+            Transform {
+                translation: random_translation(),
+                ..default()
+            },
             Enemy,
             Health(100),
             Weapon::Bow,
@@ -146,21 +149,21 @@ fn add_player_and_enemy(
 
 // Add player control
 fn player_move(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&Player, &mut Pose, &mut Transform)>,
 ) {
     for (_, mut pose, mut transform) in query.iter_mut() {
         let mut direction = Vec3::ZERO;
-        if keyboard_input.pressed(KeyCode::Left) {
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
             *pose = Pose::Walk;
-        } else if keyboard_input.pressed(KeyCode::Right) {
+        } else if keyboard_input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
             *pose = Pose::Walk;
-        } else if keyboard_input.pressed(KeyCode::Up) {
+        } else if keyboard_input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
             *pose = Pose::Walk;
-        } else if keyboard_input.pressed(KeyCode::Down) {
+        } else if keyboard_input.pressed(KeyCode::ArrowDown) {
             direction.y -= 1.0;
             *pose = Pose::Walk;
         } else {
@@ -178,8 +181,8 @@ fn player_attack(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
-    let material = materials.add(Color::rgb(1.0, 0.5, 0.5).into());
+    let mesh: Handle<Mesh> = meshes.add(Circle::default()).into();
+    let material = materials.add(Color::srgb(1.0, 0.5, 0.5));
     for (weapon, mut pose, transform, mut attack_timer) in query.iter_mut() {
         attack_timer.0.tick(time.delta());
         if !attack_timer.0.just_finished() {
@@ -235,15 +238,15 @@ fn enemy_attack(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mesh: Handle<Mesh> = meshes.add(shape::Circle::default().into()).into();
+    let mesh: Handle<Mesh> = meshes.add(Circle::default()).into();
     let random_color = || {
-        Color::rgb(
+        Color::srgb(
             rand::random::<f32>(),
             rand::random::<f32>(),
             rand::random::<f32>(),
         )
     };
-    let material = materials.add(random_color().into());
+    let material = materials.add(random_color());
     for (weapon, transform, mut attack_timer) in query.iter_mut() {
         attack_timer.0.tick(time.delta());
         if !attack_timer.0.just_finished() {

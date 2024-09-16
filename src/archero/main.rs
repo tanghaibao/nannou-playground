@@ -1,5 +1,6 @@
+use bevy::color::palettes::css::GOLD;
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -21,13 +22,14 @@ fn main() {
     App::new()
         .register_type::<ColorText>()
         .register_type::<FpsText>()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(WorldInspectorPlugin)
-        .add_plugin(ArcherPlugin)
-        .add_startup_system(setup)
-        .add_system(text_update_system)
-        .add_system(text_color_system)
+        .add_plugins((
+            DefaultPlugins,
+            FrameTimeDiagnosticsPlugin::default(),
+            WorldInspectorPlugin::default(),
+            ArcherPlugin,
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (text_color_system, text_update_system))
         .run();
 }
 
@@ -45,16 +47,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: FONT_SIZE,
                 color: Color::WHITE,
             },
-        ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::TOP_CENTER)
+        )
+        // Set the alignment of the Text
+        .with_text_justify(JustifyText::Center)
         // Set the style of the TextBundle itself.
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
             ..default()
         }),
         ColorText,
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font,
                     font_size: FONT_SIZE,
-                    color: Color::GOLD,
+                    color: GOLD.into(),
                 },
             ),
         ]),
@@ -91,17 +91,24 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
     let seconds = time.elapsed_seconds();
 
     // Update the color of the first and only section.
-    text.sections[0].style.color = Color::Rgba {
-        red: (1.25 * seconds).sin() / 2.0 + 0.5,
-        green: (0.75 * seconds).sin() / 2.0 + 0.5,
-        blue: (0.50 * seconds).sin() / 2.0 + 0.5,
-        alpha: 1.0,
-    };
+    let red = (1.25 * seconds).sin() / 2.0 + 0.5;
+    let green = (0.75 * seconds).sin() / 2.0 + 0.5;
+    let blue = (0.50 * seconds).sin() / 2.0 + 0.5;
+    let alpha = 1.0;
+    text.sections[0].style.color = Color::Srgba(Srgba {
+        red,
+        green,
+        blue,
+        alpha,
+    });
 }
 
-fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
+fn text_update_system(
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<FpsText>>,
+) {
     for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
                 text.sections[1].value = format!("{value:.2}");

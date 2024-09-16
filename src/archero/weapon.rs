@@ -14,7 +14,7 @@ impl Plugin for WeaponPlugin {
         app.register_type::<Weapon>()
             .register_type::<Damage>()
             .register_type::<Projectile>()
-            .add_system(animate_projectile);
+            .add_systems(Update, animate_projectile);
     }
 }
 
