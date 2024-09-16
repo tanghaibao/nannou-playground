@@ -1,3 +1,4 @@
+use bevy::color::palettes::css::DARK_CYAN;
 use bevy::prelude::*;
 use bevy::sprite::MaterialMesh2dBundle;
 use bevy_prototype_lyon::prelude::*;
@@ -129,17 +130,13 @@ fn add_player_and_enemy(
     };
     commands.spawn_batch((0..10).map(move |i| {
         (
-            // GeometryBuilder::build_as(
-            //     &shape,
-            //     DrawMode::Outlined {
-            //         fill_mode: FillMode::color(Color::CYAN),
-            //         outline_mode: StrokeMode::new(Color::BLACK, 10.0),
-            //     },
-            //     Transform {
-            //         translation: random_translation(),
-            //         ..default()
-            //     },
-            // ),
+            GeometryBuilder::build_as(&shape),
+            Fill::color(DARK_CYAN),
+            Stroke::new(Color::BLACK, 10.0),
+            Transform {
+                translation: random_translation(),
+                ..default()
+            },
             Enemy,
             Health(100),
             Weapon::Bow,

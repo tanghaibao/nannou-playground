@@ -1,5 +1,8 @@
 use bevy::color::palettes::css::GOLD;
-use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
+use bevy::{
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod archer;
@@ -21,12 +24,12 @@ fn main() {
         .register_type::<FpsText>()
         .add_plugins((
             DefaultPlugins,
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             WorldInspectorPlugin::default(),
             ArcherPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, text_color_system)
+        .add_systems(Update, (text_color_system, text_update_system))
         .run();
 }
 
@@ -44,19 +47,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: FONT_SIZE,
                 color: Color::WHITE,
             },
-        ),
+        )
         // Set the alignment of the Text
-        // .with_text_alignment(TextAlignment::TOP_CENTER)
-        // // Set the style of the TextBundle itself.
-        // .with_style(Style {
-        //     position_type: PositionType::Absolute,
-        //     position: UiRect {
-        //         bottom: Val::Px(5.0),
-        //         right: Val::Px(15.0),
-        //         ..default()
-        //     },
-        //     ..default()
-        // }),
+        .with_text_justify(JustifyText::Center)
+        // Set the style of the TextBundle itself.
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(15.0),
+            ..default()
+        }),
         ColorText,
         Name::new("bevy"),
     ));
@@ -101,4 +101,18 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
         blue,
         alpha,
     });
+}
+
+fn text_update_system(
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<FpsText>>,
+) {
+    for mut text in &mut query {
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(value) = fps.smoothed() {
+                // Update the value of the second section
+                text.sections[1].value = format!("{value:.2}");
+            }
+        }
+    }
 }
