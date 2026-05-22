@@ -105,8 +105,12 @@ impl Model {
         let mut x = 0.0;
         let mut y = height;
         for pixel in self.pixels.iter() {
-            let pixel = pixel / 2.0 + 0.5;
-            let color = srgba(pixel, pixel, pixel, 1.0);
+            // Duotone: map the bipolar pixel onto a deep-navy -> warm-cream ramp.
+            let t = (pixel / 2.0 + 0.5) as f32;
+            let r = 0.05 + t * (0.98 - 0.05);
+            let g = 0.07 + t * (0.91 - 0.07);
+            let b = 0.12 + t * (0.74 - 0.12);
+            let color = srgb(r, g, b);
             let cell_xy = pt2(
                 x - width / 2.0 + cell_width / 2.0,
                 y - height / 2.0 + cell_height / 2.0,
@@ -140,7 +144,7 @@ fn update(_app: &App, model: &mut Model, _update: Update) {
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
-    draw.background().color(LIGHTSLATEGRAY);
+    draw.background().color(srgb(0.043, 0.047, 0.075));
     model.draw(&draw);
     draw.to_frame(app, &frame).unwrap();
 }

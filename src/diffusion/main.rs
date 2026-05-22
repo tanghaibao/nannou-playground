@@ -31,10 +31,15 @@ impl Model {
     fn init() -> Self {
         let ma = vec![vec![1.0; GRID_SIZE]; GRID_SIZE];
         let mb = vec![vec![0.0; GRID_SIZE]; GRID_SIZE];
-        let steelblue = LinSrgba::<f64>::new(0.2745, 0.5098, 0.7059, 1.0);
-        let white = LinSrgba::<f64>::new(1.0, 1.0, 1.0, 1.0);
-        let firebrick = LinSrgba::<f64>::new(0.698, 0.133, 0.133, 1.0);
-        let colors = vec![firebrick, white, steelblue];
+        // Inferno-style ramp: deep navy in the quiescent field rising through
+        // purple and magenta to molten orange and pale gold where B concentrates.
+        let colors = vec![
+            LinSrgba::<f64>::new(0.006, 0.008, 0.030, 1.0),
+            LinSrgba::<f64>::new(0.120, 0.030, 0.220, 1.0),
+            LinSrgba::<f64>::new(0.500, 0.060, 0.220, 1.0),
+            LinSrgba::<f64>::new(0.950, 0.400, 0.120, 1.0),
+            LinSrgba::<f64>::new(1.000, 0.900, 0.650, 1.0),
+        ];
         let gradient = Gradient::new(colors);
         // Place a center square of B's
         let mut s = Self { ma, mb, gradient };
@@ -137,10 +142,11 @@ impl Model {
 }
 
 fn main() {
-    nannou::app(model).update(update).simple_window(view).run();
+    nannou::app(model).update(update).run();
 }
 
-fn model(_app: &App) -> Model {
+fn model(app: &App) -> Model {
+    app.new_window().size(840, 840).view(view).build().unwrap();
     Model::init()
 }
 

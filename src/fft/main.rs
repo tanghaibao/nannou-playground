@@ -35,32 +35,50 @@ impl Model {
     }
 
     fn draw(&self, draw: &Draw) {
-        let circle_color = LIGHTSTEELBLUE;
-        let circle_stroke_weight = 1.0;
+        draw.background().color(srgb(0.043, 0.047, 0.075));
 
-        draw.background().color(WHITE);
-
+        // Faint epicycles and their radial arms.
         for circle in &self.circles {
             draw.ellipse()
                 .x_y(circle.center.x, circle.center.y)
                 .radius(circle.radius)
-                .stroke_color(circle_color)
-                .stroke_weight(circle_stroke_weight)
+                .stroke_color(hsla(0.55, 0.5, 0.7, 0.18))
+                .stroke_weight(1.0)
                 .no_fill();
             draw.line()
                 .start(circle.center)
                 .end(circle.tip())
-                .color(circle_color)
-                .weight(circle_stroke_weight);
+                .color(hsla(0.55, 0.6, 0.8, 0.35))
+                .weight(1.2);
         }
 
-        // draw the set of points
-        let point_color = DARKSLATEGRAY;
-        let points = self.points.clone();
-        draw.polyline()
-            .color(point_color)
-            .weight(3.0)
-            .points(points);
+        // Traced curve with a hue gradient sweeping along its length, plus glow.
+        let n = self.points.len().max(1) as f32;
+        let vertices = |alpha: f32| -> Vec<(Point2, Hsla)> {
+            self.points
+                .iter()
+                .enumerate()
+                .map(|(i, &p)| {
+                    let t = i as f32 / n;
+                    let hue = (0.55 + t * 0.6).fract();
+                    (p, hsla(hue, 0.85, 0.6, alpha))
+                })
+                .collect()
+        };
+        draw.polyline().weight(6.0).points_colored(vertices(0.12));
+        draw.polyline().weight(2.0).points_colored(vertices(0.95));
+
+        // Glowing pen tip.
+        if let Some(&tip) = self.points.last() {
+            draw.ellipse()
+                .xy(tip)
+                .radius(5.0)
+                .color(hsla(0.08, 0.9, 0.65, 0.3));
+            draw.ellipse()
+                .xy(tip)
+                .radius(2.5)
+                .color(hsla(0.12, 0.9, 0.95, 1.0));
+        }
     }
 
     fn update(&mut self) {
@@ -76,10 +94,11 @@ impl Model {
 }
 
 fn main() {
-    nannou::app(model).update(update).simple_window(view).run();
+    nannou::app(model).update(update).run();
 }
 
-fn model(_app: &App) -> Model {
+fn model(app: &App) -> Model {
+    app.new_window().size(900, 900).view(view).build().unwrap();
     let circles: Vec<Circle> = (0..2)
         .rev()
         .map(|_| {
