@@ -136,30 +136,42 @@ impl Search {
     }
 
     fn draw(&self, draw: &Draw) {
-        for &(x, y) in self.open.iter() {
-            let cell_xy = pt2(
-                SIDE * x as f32 - 400.0 + SIDE / 2.0,
-                SIDE * y as f32 - 400.0 + SIDE / 2.0,
-            );
-            let cell_wh = vec2(SIDE, SIDE);
-            draw.rect().xy(cell_xy).wh(cell_wh).color(LIGHTGREEN);
-        }
+        // Explored cells: muted indigo. Drawn first so the frontier sits on top.
         for &(x, y) in self.closed.iter() {
             let cell_xy = pt2(
                 SIDE * x as f32 - 400.0 + SIDE / 2.0,
                 SIDE * y as f32 - 400.0 + SIDE / 2.0,
             );
-            let cell_wh = vec2(SIDE, SIDE);
-            draw.rect().xy(cell_xy).wh(cell_wh).color(LIGHTGREEN);
+            draw.rect()
+                .xy(cell_xy)
+                .wh(vec2(SIDE, SIDE))
+                .color(hsla(0.62, 0.5, 0.4, 0.85));
         }
-        let reconstructed_path = self.reconstruct_path();
-        for &(x, y) in reconstructed_path.iter() {
+        // Open frontier: cool cyan.
+        for &(x, y) in self.open.iter() {
             let cell_xy = pt2(
                 SIDE * x as f32 - 400.0 + SIDE / 2.0,
                 SIDE * y as f32 - 400.0 + SIDE / 2.0,
             );
-            let cell_wh = vec2(SIDE, SIDE);
-            draw.rect().xy(cell_xy).wh(cell_wh).color(GREEN);
+            draw.rect()
+                .xy(cell_xy)
+                .wh(vec2(SIDE, SIDE))
+                .color(hsla(0.5, 0.75, 0.6, 0.85));
+        }
+        // Reconstructed path: glowing gold over a soft halo.
+        for &(x, y) in self.reconstruct_path().iter() {
+            let cell_xy = pt2(
+                SIDE * x as f32 - 400.0 + SIDE / 2.0,
+                SIDE * y as f32 - 400.0 + SIDE / 2.0,
+            );
+            draw.rect()
+                .xy(cell_xy)
+                .wh(vec2(SIDE * 2.2, SIDE * 2.2))
+                .color(hsla(0.11, 0.95, 0.6, 0.18));
+            draw.rect()
+                .xy(cell_xy)
+                .wh(vec2(SIDE, SIDE))
+                .color(hsla(0.12, 0.95, 0.62, 1.0));
         }
     }
 
@@ -207,12 +219,36 @@ impl Model {
                 );
                 let cell_wh = vec2(SIDE, SIDE);
                 match cell {
-                    Cell::Empty => draw.rect().xy(cell_xy).wh(cell_wh).color(WHITE),
-                    Cell::Wall => draw.rect().xy(cell_xy).wh(cell_wh).color(BLACK),
+                    Cell::Empty => draw
+                        .rect()
+                        .xy(cell_xy)
+                        .wh(cell_wh)
+                        .color(srgb(0.14, 0.16, 0.20)),
+                    Cell::Wall => draw
+                        .rect()
+                        .xy(cell_xy)
+                        .wh(cell_wh)
+                        .color(srgb(0.03, 0.035, 0.05)),
                 };
             }
         }
         self.a_star.draw(draw);
+
+        // Start and end markers.
+        let marker = |gx: usize, gy: usize| {
+            pt2(
+                SIDE * gx as f32 - 400.0 + SIDE / 2.0,
+                SIDE * gy as f32 - 400.0 + SIDE / 2.0,
+            )
+        };
+        draw.ellipse()
+            .xy(marker(0, 0))
+            .radius(SIDE * 1.6)
+            .color(hsla(0.38, 0.85, 0.6, 1.0));
+        draw.ellipse()
+            .xy(marker(M - 1, M - 1))
+            .radius(SIDE * 1.6)
+            .color(hsla(0.95, 0.85, 0.62, 1.0));
     }
 
     fn update(&mut self) {
@@ -246,7 +282,7 @@ fn update(_app: &App, model: &mut Model, _update: Update) {
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
-    draw.background().color(LIGHTSLATEGRAY);
+    draw.background().color(srgb(0.043, 0.047, 0.075));
     model.draw(&draw);
     draw.to_frame(app, &frame).unwrap();
 }

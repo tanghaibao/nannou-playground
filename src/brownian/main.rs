@@ -28,35 +28,52 @@ impl Model {
 
     fn draw(&self, app: &App) {
         let draw = app.draw();
-        draw.background().color(WHITE);
-        // Draw the lines in gradient
-        let vertices: Vec<_> = self
-            .points
-            .iter()
-            .enumerate()
-            .map(|(i, &p)| {
-                let fract = 1.0 - i as f32 / self.points.len() as f32;
-                let rgba = srgba(
-                    STEELBLUE.red,
-                    STEELBLUE.green,
-                    STEELBLUE.blue,
-                    (fract * 255.0) as u8,
-                );
-                (p, rgba)
-            })
-            .collect();
+        draw.background().color(srgb(0.043, 0.047, 0.075));
+
+        // Trail vertices: bright cyan at the head fading to deep violet at the tail.
+        let n = self.points.len().max(1) as f32;
+        let vertices = |alpha_scale: f32| -> Vec<(Point2, Hsla)> {
+            self.points
+                .iter()
+                .enumerate()
+                .map(|(i, &p)| {
+                    let fract = 1.0 - i as f32 / n;
+                    let hue = 0.52 + (1.0 - fract) * 0.35;
+                    (p, hsla(hue, 0.85, 0.6, fract * alpha_scale))
+                })
+                .collect()
+        };
+
+        // Soft glow underlay, then crisp core line.
         draw.polyline()
-            .weight(1.0)
+            .weight(7.0)
             .join_round()
-            .points_colored(vertices);
+            .points_colored(vertices(0.16));
+        draw.polyline()
+            .weight(1.6)
+            .join_round()
+            .points_colored(vertices(0.95));
+
+        // Glowing head of the walk.
+        if let Some(&head) = self.points.front() {
+            draw.ellipse()
+                .xy(head)
+                .radius(6.0)
+                .color(hsla(0.52, 0.8, 0.7, 0.25));
+            draw.ellipse()
+                .xy(head)
+                .radius(2.5)
+                .color(hsla(0.5, 0.4, 0.95, 1.0));
+        }
     }
 }
 
 fn main() {
-    nannou::app(model).update(update).simple_window(view).run();
+    nannou::app(model).update(update).run();
 }
 
-fn model(_app: &App) -> Model {
+fn model(app: &App) -> Model {
+    app.new_window().size(900, 900).view(view).build().unwrap();
     let points = VecDeque::from(vec![pt2(0.0, 0.0)]);
     let normal = rand_distr::StandardNormal;
     let rng = rand::thread_rng();
